@@ -17,9 +17,62 @@
 
     <!-- Main Dashboard -->
     <main class="container">
+        <!-- Real-Time OS Monitor Section -->
+        <section class="os-monitor-section">
+            <h2>🖥️ Real-Time OS Monitor</h2>
+            <div class="os-stats-grid">
+                <div class="os-stat-card">
+                    <h3>CPU Usage</h3>
+                    <div class="os-stat-value" id="cpuUsage">0%</div>
+                    <div class="os-stat-label">Cores: <span id="cpuCores">0</span></div>
+                </div>
+                <div class="os-stat-card">
+                    <h3>Memory Usage</h3>
+                    <div class="os-stat-value" id="memoryUsage">0%</div>
+                    <div class="os-stat-label"><span id="memoryUsed">0</span> GB / <span id="memoryTotal">0</span> GB</div>
+                </div>
+                <div class="os-stat-card">
+                    <h3>Disk Usage</h3>
+                    <div class="os-stat-value" id="diskUsage">0%</div>
+                    <div class="os-stat-label"><span id="diskUsed">0</span> GB / <span id="diskTotal">0</span> GB</div>
+                </div>
+                <div class="os-stat-card">
+                    <h3>Active Processes</h3>
+                    <div class="os-stat-value" id="osProcessCount">0</div>
+                    <div class="os-stat-label">Running on System</div>
+                </div>
+            </div>
+            
+            <div class="os-processes-container">
+                <h3>Top 10 Processes by CPU Usage</h3>
+                <table class="os-process-table">
+                    <thead>
+                        <tr>
+                            <th>PID</th>
+                            <th>Process Name</th>
+                            <th>CPU %</th>
+                            <th>Memory %</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="osProcessTableBody">
+                        <tr>
+                            <td colspan="5" class="empty-state">Loading OS data...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Divider -->
+        <div class="section-divider">
+            <h2>⚙️ Manual Deadlock Simulation</h2>
+            <p>Create custom scenarios to test deadlock detection and recovery</p>
+        </div>
+
         <!-- System Status -->
         <section class="status-section">
-            <div class="status-card safe">
+            <div class="status-card safe" id="statusCard">
                 <div class="status-icon">✅</div>
                 <div class="status-info">
                     <h3>System Status</h3>
@@ -53,72 +106,66 @@
                 <!-- Add Process -->
                 <div class="control-card">
                     <h3>Add Process</h3>
-                    <form id="addProcessForm">
-                        <div class="form-group">
-                            <label for="processId">Process ID:</label>
-                            <input type="text" id="processId" placeholder="e.g., P1" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="processPriority">Priority:</label>
-                            <select id="processPriority">
-                                <option value="high">High</option>
-                                <option value="medium" selected>Medium</option>
-                                <option value="low">Low</option>
-                            </select>
-                        </div>
-                        <button type="submit" class="btn btn-primary">Add Process</button>
-                    </form>
+                    <div class="form-group">
+                        <label for="processId">Process ID:</label>
+                        <input type="text" id="processId" placeholder="e.g., P1">
+                    </div>
+                    <div class="form-group">
+                        <label for="processPriority">Priority:</label>
+                        <select id="processPriority">
+                            <option value="high">High</option>
+                            <option value="medium" selected>Medium</option>
+                            <option value="low">Low</option>
+                        </select>
+                    </div>
+                    <button type="button" class="btn btn-primary" onclick="addProcess()">Add Process</button>
                 </div>
 
                 <!-- Add Resource -->
                 <div class="control-card">
                     <h3>Add Resource</h3>
-                    <form id="addResourceForm">
-                        <div class="form-group">
-                            <label for="resourceId">Resource ID:</label>
-                            <input type="text" id="resourceId" placeholder="e.g., R1" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="resourceType">Type:</label>
-                            <select id="resourceType">
-                                <option value="CPU">CPU</option>
-                                <option value="Memory">Memory</option>
-                                <option value="Disk">Disk</option>
-                                <option value="Printer">Printer</option>
-                            </select>
-                        </div>
-                        <button type="submit" class="btn btn-primary">Add Resource</button>
-                    </form>
+                    <div class="form-group">
+                        <label for="resourceId">Resource ID:</label>
+                        <input type="text" id="resourceId" placeholder="e.g., R1">
+                    </div>
+                    <div class="form-group">
+                        <label for="resourceType">Type:</label>
+                        <select id="resourceType">
+                            <option value="CPU">CPU</option>
+                            <option value="Memory">Memory</option>
+                            <option value="Disk">Disk</option>
+                            <option value="Printer">Printer</option>
+                        </select>
+                    </div>
+                    <button type="button" class="btn btn-primary" onclick="addResource()">Add Resource</button>
                 </div>
 
                 <!-- Request Resource -->
                 <div class="control-card">
                     <h3>Request Resource</h3>
-                    <form id="requestResourceForm">
-                        <div class="form-group">
-                            <label for="reqProcessId">Process:</label>
-                            <select id="reqProcessId">
-                                <option value="">Select Process</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="reqResourceId">Resource:</label>
-                            <select id="reqResourceId">
-                                <option value="">Select Resource</option>
-                            </select>
-                        </div>
-                        <button type="submit" class="btn btn-success">Request</button>
-                    </form>
+                    <div class="form-group">
+                        <label for="reqProcessId">Process:</label>
+                        <select id="reqProcessId">
+                            <option value="">Select Process</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="reqResourceId">Resource:</label>
+                        <select id="reqResourceId">
+                            <option value="">Select Resource</option>
+                        </select>
+                    </div>
+                    <button type="button" class="btn btn-success" onclick="requestResource()">Request</button>
                 </div>
 
                 <!-- System Actions -->
                 <div class="control-card">
                     <h3>System Actions</h3>
                     <div class="action-buttons">
-                        <button class="btn btn-warning" id="detectDeadlock">Detect Deadlock</button>
-                        <button class="btn btn-info" id="predictDeadlock">Predict Deadlock</button>
-                        <button class="btn btn-danger" id="recoverDeadlock">Recover System</button>
-                        <button class="btn btn-secondary" id="resetSystem">Reset System</button>
+                        <button class="btn btn-warning" onclick="detectDeadlock()">Detect Deadlock</button>
+                        <button class="btn btn-info" onclick="predictDeadlock()">Predict Deadlock</button>
+                        <button class="btn btn-danger" onclick="recoverDeadlock()">Recover System</button>
+                        <button class="btn btn-secondary" onclick="resetSystem()">Reset System</button>
                     </div>
                 </div>
             </div>
@@ -172,12 +219,11 @@
                             <th>Priority</th>
                             <th>Held Resources</th>
                             <th>Waiting For</th>
-                            <th>Action</th>
                         </tr>
                     </thead>
                     <tbody id="processTableBody">
                         <tr>
-                            <td colspan="5" class="empty-state">No processes added yet</td>
+                            <td colspan="4" class="empty-state">No processes added yet</td>
                         </tr>
                     </tbody>
                 </table>
