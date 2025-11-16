@@ -1,0 +1,1446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Predlock - Predictive Deadlock Detection & Recovery</title>
+    <style>
+         * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #F0F4F8 0%, #E8F4FD 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            color: #2C3E50;
+            padding: 30px 0;
+        }
+
+        h1 {
+            font-size: 2.8em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .subtitle {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .mode-selector {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 30px 0;
+        }
+
+        .mode-btn {
+            padding: 18px 50px;
+            font-size: 1.2em;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #FFFFFF;
+            color: #A7C7E7;
+            font-weight: bold;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .mode-btn.active {
+            background: #A7C7E7;
+            color: #FFFFFF;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+        }
+
+        .mode-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+        }
+
+        .main-content {
+            background: #FFFFFF;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.1);
+        }
+
+        .mode-content {
+            display: none;
+        }
+
+        .mode-content.active {
+            display: block;
+        }
+
+        .status-block {
+            background: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            border: 3px solid #E2E8F0;
+            transition: all 0.3s;
+        }
+
+        .status-block.safe {
+            background: linear-gradient(135deg, #D5F4E6 0%, #B2E8D4 100%);
+            border-color: #A0D9B7;
+        }
+
+        .status-block.warning {
+            background: linear-gradient(135deg, #FFF5D6 0%, #FFE4B5 100%);
+            border-color: #FDBA74;
+        }
+
+        .status-block.danger {
+            background: linear-gradient(135deg, #FFD1D1 0%, #FFB3B3 100%);
+            border-color: #FF9999;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+        }
+
+        .status-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .status-icon {
+            font-size: 3em;
+        }
+
+        .status-title {
+            font-size: 1.8em;
+            font-weight: bold;
+        }
+
+        .status-message {
+            font-size: 1.1em;
+            line-height: 1.6;
+            margin-top: 10px;
+        }
+
+        .status-details {
+            margin-top: 15px;
+            padding: 15px;
+            background: rgba(255,255,255,0.7);
+            border-radius: 10px;
+            font-size: 0.95em;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #A7C7E7 0%, #D7BDE2 100%);
+            color: #FFFFFF;
+            padding: 25px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transition: transform 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-value {
+            font-size: 2.8em;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .stat-label {
+            font-size: 1em;
+            opacity: 0.9;
+        }
+
+        .controls-section {
+            background: #F8FAFC;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 25px;
+        }
+
+        .section-title {
+            font-size: 1.4em;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: #2C3E50;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .input-group label {
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+            font-size: 0.95em;
+        }
+
+        .input-group input, .input-group select {
+            padding: 12px;
+            border: 2px solid #E2E8F0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        .input-group input:focus, .input-group select:focus {
+            outline: none;
+            border-color: #A7C7E7;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            transition: all 0.3s;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .btn-primary {
+            background: #A7C7E7;
+            color: #FFFFFF;
+        }
+
+        .btn-danger {
+            background: #FF9999;
+            color: #FFFFFF;
+        }
+
+        .btn-success {
+            background: #A0D9B7;
+            color: #FFFFFF;
+        }
+
+        .btn-warning {
+            background: #FDBA74;
+            color: #FFFFFF;
+        }
+
+        .btn-secondary {
+            background: #BFC9D9;
+            color: #FFFFFF;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .graph-container {
+            background: #F8FAFC;
+            border: 2px solid #E2E8F0;
+            border-radius: 12px;
+            padding: 25px;
+            margin: 25px 0;
+            min-height: 450px;
+            overflow: auto;
+            max-height: 600px;
+        }
+
+        .graph-title {
+            font-size: 1.4em;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: #2C3E50;
+        }
+
+        .process-list, .resource-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+            margin: 25px 0;
+        }
+
+        .process-card, .resource-card {
+            background: #FFFFFF;
+            border: 2px solid #E2E8F0;
+            border-radius: 10px;
+            padding: 20px;
+            transition: all 0.3s;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+        }
+
+        .process-card:hover, .resource-card:hover {
+            border-color: #A7C7E7;
+            box-shadow: 0 6px 15px rgba(167, 199, 231, 0.2);
+            transform: translateY(-3px);
+        }
+
+        .process-card.system {
+            border-color: #FDBA74;
+            background: #FFF8F0;
+        }
+
+        .process-card.critical {
+            border-color: #FF9999;
+            background: #FFF5F5;
+        }
+
+        .card-header {
+            font-weight: bold;
+            font-size: 1.15em;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
+        .badge {
+            padding: 4px 10px;
+            border-radius: 5px;
+            font-size: 0.75em;
+            font-weight: bold;
+        }
+
+        .badge-user {
+            background: #D5F4E6;
+            color: #2E7D5E;
+        }
+
+        .badge-system {
+            background: #FFF5D6;
+            color: #C96B38;
+        }
+
+        .badge-critical {
+            background: #FFD1D1;
+            color: #C92A2A;
+        }
+
+        .badge-risk-low {
+            background: #D5F4E6;
+            color: #2E7D5E;
+        }
+
+        .badge-risk-medium {
+            background: #FFF5D6;
+            color: #C96B38;
+        }
+
+        .badge-risk-high {
+            background: #FFD1D1;
+            color: #C92A2A;
+        }
+
+        .card-info {
+            font-size: 0.92em;
+            color: #666;
+            line-height: 1.8;
+        }
+
+        .alert {
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-weight: 500;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .alert-success {
+            background: #D5F4E6;
+            color: #2E7D5E;
+            border: 2px solid #A0D9B7;
+        }
+
+        .alert-danger {
+            background: #FFD1D1;
+            color: #C92A2A;
+            border: 2px solid #FF9999;
+        }
+
+        .alert-info {
+            background: #E0F2FE;
+            color: #0066CC;
+            border: 2px solid #B3E5FC;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: #FFFFFF;
+            border-radius: 20px;
+            padding: 35px;
+            max-width: 900px;
+            max-height: 85vh;
+            overflow-y: auto;
+            box-shadow: 0 25px 70px rgba(0,0,0,0.2);
+            animation: modalSlideIn 0.3s ease-out;
+        }
+
+        @keyframes modalSlideIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .modal-header {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 25px;
+            color: #2C3E50;
+        }
+
+        .recovery-option {
+            background: #F8FAFC;
+            border: 2px solid #E2E8F0;
+            border-radius: 12px;
+            padding: 25px;
+            margin: 20px 0;
+            transition: all 0.3s;
+        }
+
+        .recovery-option:hover {
+            border-color: #A7C7E7;
+            box-shadow: 0 6px 18px rgba(167, 199, 231, 0.2);
+        }
+
+        .recovery-option.recommended {
+            border-color: #A0D9B7;
+            background: #F0FDF4;
+        }
+
+        .option-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+        }
+
+        .option-title {
+            font-size: 1.3em;
+            font-weight: bold;
+        }
+
+        .risk-badge {
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 0.95em;
+        }
+
+        .risk-low {
+            background: #D5F4E6;
+            color: #2E7D5E;
+        }
+
+        .risk-high {
+            background: #FFF5D6;
+            color: #C96B38;
+        }
+
+        .risk-critical {
+            background: #FFD1D1;
+            color: #C92A2A;
+        }
+
+        .pros-cons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px;
+            margin: 18px 0;
+        }
+
+        .pros, .cons {
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        .pros {
+            background: #F0FDF4;
+            border-left: 4px solid #A0D9B7;
+        }
+
+        .cons {
+            background: #FFF5F5;
+            border-left: 4px solid #FF9999;
+        }
+
+        .pros h4, .cons h4 {
+            margin-bottom: 10px;
+            font-size: 0.95em;
+        }
+
+        .pros ul, .cons ul {
+            list-style: none;
+            font-size: 0.88em;
+            line-height: 1.9;
+        }
+
+        .pros li:before {
+            content: "✓ ";
+            color: #A0D9B7;
+            font-weight: bold;
+        }
+
+        .cons li:before {
+            content: "✗ ";
+            color: #FF9999;
+            font-weight: bold;
+        }
+
+        .graph-svg {
+            display: block;
+            min-height: 500px;
+            min-width: 1200px;
+        }
+
+        .node-process {
+            fill: #A7C7E7;
+            stroke: #8BB8D9;
+            stroke-width: 2;
+        }
+
+        .node-resource {
+            fill: #A0D9B7;
+            stroke: #7BBEA0;
+            stroke-width: 2;
+        }
+
+        .node-text {
+            fill: white;
+            font-size: 13px;
+            font-weight: bold;
+            text-anchor: middle;
+        }
+
+        .edge-allocation {
+            stroke: #B3E5FC;
+            stroke-width: 2;
+            marker-end: url(#arrow-allocation);
+        }
+
+        .edge-request {
+            stroke: #FF9999;
+            stroke-width: 2;
+            stroke-dasharray: 5,5;
+            marker-end: url(#arrow-request);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 50px;
+            font-size: 1.2em;
+            color: #666;
+        }
+
+        .spinner {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #A7C7E7;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 70px 20px;
+            color: #BFC9D9;
+        }
+
+        .empty-state-icon {
+            font-size: 4.5em;
+            margin-bottom: 20px;
+        }
+
+        .filter-controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 10px 20px;
+            border: 2px solid #E2E8F0;
+            background: #FFFFFF;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+
+        .filter-btn.active {
+            background: #A7C7E7;
+            color: #FFFFFF;
+            border-color: #A7C7E7;
+        }
+
+        .process-group {
+            margin-bottom: 35px;
+        }
+
+        .group-header {
+            font-size: 1.3em;
+            font-weight: bold;
+            margin-bottom: 18px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #E2E8F0;
+            color: #2C3E50;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔒 PREDLOCK</h1>
+            <p class="subtitle">Predictive Deadlock Detection & Recovery Tool</p>
+        </header>
+
+        <div class="mode-selector">
+            <button class="mode-btn active" onclick="switchMode('manual')">📝 Manual Simulation</button>
+            <button class="mode-btn" onclick="switchMode('realtime')">⚡ Real-Time Monitoring</button>
+        </div>
+
+        <div class="main-content">
+            <div class="dashboard" id="dashboard">
+                <div class="stat-card">
+                    <div class="stat-label">Total Processes</div>
+                    <div class="stat-value" id="stat-processes">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Resources</div>
+                    <div class="stat-value" id="stat-resources">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">CPU Usage</div>
+                    <div class="stat-value" id="stat-cpu">0%</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Memory Usage</div>
+                    <div class="stat-value" id="stat-memory">0%</div>
+                </div>
+            </div>
+
+            <div id="alert-area"></div>
+
+            <div id="manual-mode" class="mode-content active">
+                <h2 style="margin-bottom: 25px; font-size: 1.8em;">Manual Simulation Mode</h2>
+                
+                <div id="manual-status" class="status-block safe">
+                    <div class="status-header">
+                        <div class="status-icon">✅</div>
+                        <div>
+                            <div class="status-title">System Safe</div>
+                            <div class="status-message">No deadlock detected. System is running smoothly.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="prediction-status" class="status-block safe" style="background: linear-gradient(135deg, #E0F2FE 0%, #B3E5FC 100%); border-color: #81C7E8;">
+                    <div class="status-header">
+                        <div class="status-icon">🔮</div>
+                        <div>
+                            <div class="status-title">Prediction: Safe State</div>
+                            <div class="status-message">System can avoid deadlock. Safe sequence available.</div>
+                        </div>
+                    </div>
+                    <div class="status-details" id="prediction-details" style="display:none;"></div>
+                </div>
+
+                <div class="controls-section">
+                    <div class="section-title">➕ Add Process</div>
+                    <div class="controls">
+                        <div class="input-group">
+                            <label>Process Name</label>
+                            <input type="text" id="process-name" placeholder="e.g., P1, Process A">
+                        </div>
+                        <button class="btn btn-primary" onclick="addProcess()">Add Process</button>
+                    </div>
+                </div>
+
+                <div class="controls-section">
+                    <div class="section-title">➕ Add Resource</div>
+                    <div class="controls">
+                        <div class="input-group">
+                            <label>Resource Name</label>
+                            <input type="text" id="resource-name" placeholder="e.g., R1, File A">
+                        </div>
+                        <button class="btn btn-primary" onclick="addResource()">Add Resource</button>
+                    </div>
+                </div>
+
+                <div class="controls-section">
+                    <div class="section-title">🔗 Manage Allocations & Requests</div>
+                    <div class="controls">
+                        <div class="input-group">
+                            <label>Process</label>
+                            <select id="select-process">
+                                <option value="">Select Process</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Resource</label>
+                            <select id="select-resource">
+                                <option value="">Select Resource</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-success" onclick="allocateResource()">Allocate Resource</button>
+                        <button class="btn btn-warning" onclick="requestResource()">Request Resource</button>
+                    </div>
+                    <button class="btn btn-secondary" onclick="resetSimulation()">🔄 Reset Simulation</button>
+                </div>
+
+                <div class="graph-container">
+                    <div class="graph-title">Resource Allocation Graph (RAG)</div>
+                    <svg id="rag-graph" class="graph-svg"></svg>
+                </div>
+
+                <div class="process-group">
+                    <div class="group-header">📋 Processes</div>
+                    <div id="manual-processes" class="process-list">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📋</div>
+                            <p>No processes added yet. Start by adding a process above.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="process-group">
+                    <div class="group-header">💾 Resources</div>
+                    <div id="manual-resources" class="resource-list">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">💾</div>
+                            <p>No resources added yet. Start by adding a resource above.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="realtime-mode" class="mode-content">
+                <h2 style="margin-bottom: 25px; font-size: 1.8em;">Real-Time Process Monitoring</h2>
+                
+                <div id="realtime-status" class="status-block safe">
+                    <div class="status-header">
+                        <div class="status-icon">✅</div>
+                        <div>
+                            <div class="status-title">System Healthy</div>
+                            <div class="status-message">Monitoring active processes. No deadlock detected.</div>
+                        </div>
+                    </div>
+                    <div class="status-details" id="realtime-status-details">
+                        Last scan: <span id="last-scan-time">Never</span>
+                    </div>
+                </div>
+
+                <div class="controls-section">
+                    <div class="section-title">🔧 Controls</div>
+                    <div class="filter-controls">
+                        <button class="filter-btn active" data-filter="all" onclick="filterProcesses('all')">All Processes</button>
+                        <button class="filter-btn" data-filter="user" onclick="filterProcesses('user')">User Processes</button>
+                        <button class="filter-btn" data-filter="system" onclick="filterProcesses('system')">System Processes</button>
+                        <button class="filter-btn" data-filter="critical" onclick="filterProcesses('critical')">Critical Processes</button>
+                    </div>
+                    <button class="btn btn-primary" onclick="refreshProcesses()">🔄 Refresh Processes</button>
+                    <label style="margin-left: 20px;">
+                        <input type="checkbox" id="auto-refresh-checkbox" checked onchange="toggleAutoRefresh()">
+                        Auto-refresh every 5 seconds
+                    </label>
+                </div>
+
+                <div id="realtime-processes">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <p>Loading processes...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="recovery-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">⚠️ Deadlock Detected - Recovery Options</div>
+            <div id="recovery-options"></div>
+            <div style="text-align: center; margin-top: 30px;">
+                <button class="btn btn-secondary" onclick="closeRecoveryModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+    <script>
+        let currentMode = 'manual';
+        let processCounter = 0;
+        let resourceCounter = 0;
+        let realtimeInterval;
+        let currentFilter = 'all';
+        let allProcesses = [];
+        let existingProcessNames = new Set();
+        let existingResourceNames = new Set();
+        let lastRecoveryOptions = null;
+        let lastRealtimeRecoveryOptions = null;
+
+        function switchMode(mode) {
+            currentMode = mode;
+            document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            document.querySelectorAll('.mode-content').forEach(content => content.classList.remove('active'));
+            document.getElementById(mode + '-mode').classList.add('active');
+            
+            if (mode === 'realtime') {
+                refreshProcesses();
+                startRealtimeUpdates();
+            } else {
+                stopRealtimeUpdates();
+                loadManualState();
+            }
+        }
+
+        async function addProcess() {
+            const name = document.getElementById('process-name').value.trim();
+            if (!name) {
+                showAlert('Please enter a process name', 'danger');
+                return;
+            }
+            
+            if (existingProcessNames.has(name.toLowerCase())) {
+                showAlert('⚠️ A process with the name "' + name + '" already exists. Please use a different name.', 'danger');
+                return;
+            }
+            
+            const processId = 'P' + (++processCounter);
+            try {
+                const response = await fetch('/api/manual/add_process', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({process_id: processId, process_name: name})
+                });
+                const data = await response.json();
+                showAlert(data.message, 'success');
+                existingProcessNames.add(name.toLowerCase());
+                document.getElementById('process-name').value = '';
+                await loadManualState();
+                await checkDeadlockAuto();
+            } catch (error) {
+                showAlert('Error adding process', 'danger');
+            }
+        }
+
+        async function addResource() {
+            const name = document.getElementById('resource-name').value.trim();
+            if (!name) {
+                showAlert('Please enter a resource name', 'danger');
+                return;
+            }
+            
+            if (existingResourceNames.has(name.toLowerCase())) {
+                showAlert('⚠️ A resource with the name "' + name + '" already exists. Please use a different name.', 'danger');
+                return;
+            }
+            
+            const resourceId = 'R' + (++resourceCounter);
+            try {
+                const response = await fetch('/api/manual/add_resource', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({resource_id: resourceId, resource_name: name, instances: 1})
+                });
+                const data = await response.json();
+                showAlert(data.message, 'success');
+                existingResourceNames.add(name.toLowerCase());
+                document.getElementById('resource-name').value = '';
+                await loadManualState();
+                await checkDeadlockAuto();
+            } catch (error) {
+                showAlert('Error adding resource', 'danger');
+            }
+        }
+
+        async function allocateResource() {
+            const processId = document.getElementById('select-process').value;
+            const resourceId = document.getElementById('select-resource').value;
+            if (!processId || !resourceId) {
+                showAlert('Please select both process and resource', 'danger');
+                return;
+            }
+            try {
+                await fetch('/api/manual/allocate', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({process_id: processId, resource_id: resourceId})
+                });
+                showAlert('Resource allocated successfully', 'success');
+                await loadManualState();
+                await checkDeadlockAuto();
+            } catch (error) {
+                showAlert('Error allocating resource', 'danger');
+            }
+        }
+
+        async function requestResource() {
+            const processId = document.getElementById('select-process').value;
+            const resourceId = document.getElementById('select-resource').value;
+            if (!processId || !resourceId) {
+                showAlert('Please select both process and resource', 'danger');
+                return;
+            }
+            try {
+                await fetch('/api/manual/request', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({process_id: processId, resource_id: resourceId})
+                });
+                showAlert('Resource requested', 'info');
+                await loadManualState();
+                await checkDeadlockAuto();
+            } catch (error) {
+                showAlert('Error requesting resource', 'danger');
+            }
+        }
+
+        async function checkDeadlockAuto() {
+            try {
+                const response = await fetch('/api/manual/detect');
+                const data = await response.json();
+                updateManualStatus(data);
+                
+                // Store recovery options globally
+                if (data.deadlock_detected && data.recovery_options) {
+                    lastRecoveryOptions = data.recovery_options;
+                    showRecoveryModal(data.recovery_options);
+                } else {
+                    lastRecoveryOptions = null;
+                }
+                
+                await checkPrediction();
+            } catch (error) {
+                console.error('Error checking deadlock:', error);
+            }
+        }
+
+        async function checkPrediction() {
+            try {
+                const response = await fetch('/api/manual/predict');
+                const data = await response.json();
+                updatePredictionStatus(data);
+            } catch (error) {
+                console.error('Error checking prediction:', error);
+            }
+        }
+
+        function updatePredictionStatus(data) {
+            const statusBlock = document.getElementById('prediction-status');
+            const statusIcon = statusBlock.querySelector('.status-icon');
+            const statusTitle = statusBlock.querySelector('.status-title');
+            const statusMessage = statusBlock.querySelector('.status-message');
+            const detailsDiv = document.getElementById('prediction-details');
+            
+            statusBlock.className = 'status-block';
+            statusBlock.style.background = '';
+            statusBlock.style.borderColor = '';
+            
+            if (data.is_safe) {
+                statusBlock.style.background = 'linear-gradient(135deg, #E0F2FE 0%, #B3E5FC 100%)';
+                statusBlock.style.borderColor = '#81C7E8';
+                statusIcon.textContent = '🔮';
+                statusTitle.textContent = 'Prediction: SAFE State';
+                statusMessage.textContent = data.message;
+                
+                if (data.safe_sequence && data.safe_sequence.length > 0) {
+                    detailsDiv.style.display = 'block';
+                    detailsDiv.innerHTML = '<strong>Safe Sequence:</strong> ' + data.safe_sequence.join(' → ');
+                } else {
+                    detailsDiv.style.display = 'none';
+                }
+            } else {
+                statusBlock.classList.add('warning');
+                statusBlock.style.background = 'linear-gradient(135deg, #FFF5D6 0%, #FFE4B5 100%)';
+                statusBlock.style.borderColor = '#FDBA74';
+                statusIcon.textContent = '⚠️';
+                statusTitle.textContent = 'Prediction: UNSAFE State';
+                statusMessage.innerHTML = data.message + '<br><small>System may enter deadlock. Proceed with caution!</small>';
+                detailsDiv.style.display = 'none';
+            }
+        }
+
+        function updateManualStatus(data) {
+            const statusBlock = document.getElementById('manual-status');
+            const statusIcon = statusBlock.querySelector('.status-icon');
+            const statusTitle = statusBlock.querySelector('.status-title');
+            const statusMessage = statusBlock.querySelector('.status-message');
+            statusBlock.className = 'status-block';
+            
+            if (data.deadlock_detected) {
+                statusBlock.classList.add('danger');
+                statusIcon.textContent = '🚨';
+                statusTitle.textContent = 'DEADLOCK DETECTED!';
+                statusMessage.innerHTML = '<strong>' + data.message + '</strong><br><small>Circular wait detected. Recovery actions available.</small>';
+                
+                // Add recovery button
+                const btn = document.createElement('button');
+                btn.className = 'btn btn-danger';
+                btn.style.marginTop = '15px';
+                btn.innerHTML = '🔧 View Recovery Options';
+                btn.addEventListener('click', function() {
+                    if (lastRecoveryOptions) {
+                        showRecoveryModal(lastRecoveryOptions);
+                    }
+                });
+                statusMessage.appendChild(document.createElement('br'));
+                statusMessage.appendChild(btn);
+            } else {
+                statusBlock.classList.add('safe');
+                statusIcon.textContent = '✅';
+                statusTitle.textContent = 'System Safe';
+                statusMessage.textContent = data.message || 'No deadlock detected. System is in a safe state.';
+            }
+        }
+
+        async function resetSimulation() {
+            if (!confirm('Reset simulation? All data will be lost.')) return;
+            try {
+                await fetch('/api/manual/reset', {method: 'POST'});
+                showAlert('Simulation reset', 'info');
+                processCounter = 0;
+                resourceCounter = 0;
+                existingProcessNames.clear();
+                existingResourceNames.clear();
+                await loadManualState();
+                updateManualStatus({deadlock_detected: false, message: 'Simulation reset.'});
+                updatePredictionStatus({is_safe: true, message: 'Ready to start.', safe_sequence: []});
+            } catch (error) {
+                showAlert('Error resetting simulation', 'danger');
+            }
+        }
+
+        async function loadManualState() {
+            try {
+                const response = await fetch('/api/manual/get_state');
+                const data = await response.json();
+                
+                existingProcessNames.clear();
+                existingResourceNames.clear();
+                
+                data.processes.forEach(p => existingProcessNames.add(p.name.toLowerCase()));
+                data.resources.forEach(r => existingResourceNames.add(r.name.toLowerCase()));
+                
+                updateManualProcesses(data.processes);
+                updateManualResources(data.resources);
+                updateDropdowns(data.processes, data.resources);
+                drawGraph(data.graph);
+                document.getElementById('stat-processes').textContent = data.processes.length;
+                document.getElementById('stat-resources').textContent = data.resources.length;
+            } catch (error) {
+                console.error('Error loading manual state:', error);
+            }
+        }
+
+        function updateManualProcesses(processes) {
+            const container = document.getElementById('manual-processes');
+            if (processes.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📋</div><p>No processes added yet.</p></div>';
+                return;
+            }
+            container.innerHTML = processes.map(p => 
+                '<div class="process-card"><div class="card-header">' + p.name + '<span class="badge badge-user">USER</span></div>' +
+                '<div class="card-info"><div><strong>ID:</strong> ' + p.id + '</div>' +
+                '<div><strong>Allocated:</strong> ' + (p.allocated.length > 0 ? p.allocated.join(', ') : 'None') + '</div>' +
+                '<div><strong>Requested:</strong> ' + (p.requested.length > 0 ? p.requested.join(', ') : 'None') + '</div></div></div>'
+            ).join('');
+        }
+
+        function updateManualResources(resources) {
+            const container = document.getElementById('manual-resources');
+            if (resources.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">💾</div><p>No resources added yet.</p></div>';
+                return;
+            }
+            container.innerHTML = resources.map(r => 
+                '<div class="resource-card"><div class="card-header">' + r.name + '</div>' +
+                '<div class="card-info"><div><strong>ID:</strong> ' + r.id + '</div>' +
+                '<div><strong>Total:</strong> ' + r.instances + '</div>' +
+                '<div><strong>Available:</strong> ' + r.available + '</div></div></div>'
+            ).join('');
+        }
+
+        function updateDropdowns(processes, resources) {
+            document.getElementById('select-process').innerHTML = '<option value="">Select Process</option>' + 
+                processes.map(p => '<option value="' + p.id + '">' + p.name + '</option>').join('');
+            document.getElementById('select-resource').innerHTML = '<option value="">Select Resource</option>' + 
+                resources.map(r => '<option value="' + r.id + '">' + r.name + '</option>').join('');
+        }
+
+        function drawGraph(graphData) {
+            const svg = document.getElementById('rag-graph');
+            if (!graphData || !graphData.nodes || graphData.nodes.length === 0) {
+                svg.innerHTML = '<text x="600" y="250" text-anchor="middle" fill="#666" font-size="16">Add processes and resources to see the graph!</text>';
+                svg.setAttribute('width', '1200');
+                svg.setAttribute('height', '500');
+                return;
+            }
+            const width = 1200;
+            const height = 500;
+            svg.setAttribute('width', width);
+            svg.setAttribute('height', height);
+            
+            const nodes = graphData.nodes.map((n, i) => {
+                const angle = (i / graphData.nodes.length) * 2 * Math.PI;
+                const radius = Math.min(width, height) * 0.35;
+                return {id: n.id, label: n.label, type: n.type, x: width/2 + radius*Math.cos(angle), y: height/2 + radius*Math.sin(angle)};
+            });
+            let content = '<defs><marker id="arrow-allocation" markerWidth="10" markerHeight="10" refX="28" refY="3" orient="auto">' +
+                '<path d="M0,0 L0,6 L9,3 z" fill="#B3E5FC"/></marker>' +
+                '<marker id="arrow-request" markerWidth="10" markerHeight="10" refX="28" refY="3" orient="auto">' +
+                '<path d="M0,0 L0,6 L9,3 z" fill="#FF9999"/></marker></defs>';
+            graphData.links.forEach(link => {
+                const source = nodes.find(n => n.id === link.source);
+                const target = nodes.find(n => n.id === link.target);
+                if (source && target) {
+                    content += '<line x1="' + source.x + '" y1="' + source.y + '" x2="' + target.x + '" y2="' + target.y + '" class="edge-' + link.type + '"/>';
+                }
+            });
+            nodes.forEach(node => {
+                if (node.type === 'process') {
+                    content += '<circle cx="' + node.x + '" cy="' + node.y + '" r="30" class="node-process"/>' +
+                        '<text x="' + node.x + '" y="' + (node.y + 6) + '" class="node-text">' + node.label + '</text>';
+                } else {
+                    content += '<rect x="' + (node.x - 30) + '" y="' + (node.y - 25) + '" width="60" height="50" rx="5" class="node-resource"/>' +
+                        '<text x="' + node.x + '" y="' + (node.y + 6) + '" class="node-text">' + node.label + '</text>';
+                }
+            });
+            svg.innerHTML = content;
+        }
+
+        async function refreshProcesses() {
+            try {
+                const response = await fetch('/api/realtime/processes');
+                const data = await response.json();
+                allProcesses = data.processes;
+                displayFilteredProcesses();
+                document.getElementById('stat-processes').textContent = data.processes.length;
+                await detectDeadlockRealtime();
+            } catch (error) {
+                showAlert('Error loading processes', 'danger');
+            }
+        }
+
+        async function detectDeadlockRealtime() {
+            try {
+                const response = await fetch('/api/realtime/detect');
+                const data = await response.json();
+                updateRealtimeStatus(data);
+                
+                // Store recovery options globally
+                if (data.deadlock_detected && data.recovery_options) {
+                    lastRealtimeRecoveryOptions = data.recovery_options;
+                    showRecoveryModal(data.recovery_options);
+                } else {
+                    lastRealtimeRecoveryOptions = null;
+                }
+            } catch (error) {
+                console.error('Error detecting deadlock:', error);
+            }
+        }
+
+        // Variable already declared above
+
+        function updateRealtimeStatus(data) {
+            const statusBlock = document.getElementById('realtime-status');
+            const statusIcon = statusBlock.querySelector('.status-icon');
+            const statusTitle = statusBlock.querySelector('.status-title');
+            const statusMessage = statusBlock.querySelector('.status-message');
+            const now = new Date();
+            document.getElementById('last-scan-time').textContent = now.toLocaleTimeString();
+            statusBlock.className = 'status-block';
+            if (data.deadlock_detected) {
+                statusBlock.classList.add('danger');
+                statusIcon.textContent = '🚨';
+                statusTitle.textContent = 'POTENTIAL DEADLOCK DETECTED!';
+                statusMessage.innerHTML = '<strong>' + data.message + '</strong>' + (data.note ? '<br><small>' + data.note + '</small>' : '') +
+                    (data.details ? '<br><br><div style="font-family:monospace;font-size:0.9em;white-space:pre-line;">' + data.details + '</div>' : '');
+                
+                // Store recovery options
+                lastRealtimeRecoveryOptions = data.recovery_options;
+                
+                // Create and add button
+                const existingBtn = statusMessage.querySelector('.recovery-btn');
+                if (!existingBtn) {
+                    const btn = document.createElement('button');
+                    btn.className = 'btn btn-danger recovery-btn';
+                    btn.style.marginTop = '15px';
+                    btn.innerHTML = '🔧 View Recovery Options';
+                    btn.onclick = function() {
+                        if (lastRealtimeRecoveryOptions && lastRealtimeRecoveryOptions.length > 0) {
+                            showRecoveryModal(lastRealtimeRecoveryOptions);
+                        } else {
+                            showAlert('No recovery options available', 'info');
+                        }
+                    };
+                    statusMessage.appendChild(document.createElement('br'));
+                    statusMessage.appendChild(btn);
+                }
+                
+                document.getElementById('realtime-status-details').innerHTML = 
+                    'Last scan: ' + now.toLocaleTimeString() + '<br><strong style="color:#c53030;">⚠️ ' + data.deadlock_processes.length + ' process(es) in suspicious state</strong>';
+            } else {
+                statusBlock.classList.add('safe');
+                statusIcon.textContent = '✅';
+                statusTitle.textContent = 'System Healthy';
+                statusMessage.textContent = data.message || 'No deadlock detected.';
+                document.getElementById('realtime-status-details').innerHTML = 
+                    'Last scan: ' + now.toLocaleTimeString() + '<br>Total processes: ' + allProcesses.length;
+                lastRealtimeRecoveryOptions = null;
+            }
+        }
+
+        function filterProcesses(filter) {
+            currentFilter = filter;
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.filter === filter);
+            });
+            displayFilteredProcesses();
+        }
+
+        function displayFilteredProcesses() {
+            const container = document.getElementById('realtime-processes');
+            let filtered = currentFilter === 'all' ? allProcesses : allProcesses.filter(p => p.type === currentFilter);
+            if (filtered.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><p>No processes found</p></div>';
+                return;
+            }
+            const grouped = {
+                critical: filtered.filter(p => p.type === 'critical'),
+                system: filtered.filter(p => p.type === 'system'),
+                user: filtered.filter(p => p.type === 'user')
+            };
+            let html = '';
+            if (grouped.critical.length > 0) {
+                html += '<div class="process-group"><div class="group-header">⚠️ Critical System Processes</div><div class="process-list">';
+                html += grouped.critical.map(p => renderProcessCard(p)).join('');
+                html += '</div></div>';
+            }
+            if (grouped.system.length > 0) {
+                html += '<div class="process-group"><div class="group-header">🔧 System Processes</div><div class="process-list">';
+                html += grouped.system.map(p => renderProcessCard(p)).join('');
+                html += '</div></div>';
+            }
+            if (grouped.user.length > 0) {
+                html += '<div class="process-group"><div class="group-header">👤 User Processes</div><div class="process-list">';
+                html += grouped.user.map(p => renderProcessCard(p)).join('');
+                html += '</div></div>';
+            }
+            container.innerHTML = html;
+        }
+
+        function renderProcessCard(process) {
+            const badgeClass = process.type === 'critical' ? 'badge-critical' : 
+                               process.type === 'system' ? 'badge-system' : 'badge-user';
+            const cardClass = process.type === 'critical' ? 'critical' : process.type === 'system' ? 'system' : '';
+            const riskBadgeClass = 'badge-risk-' + (process.risk_level || 'low');
+            const riskIcon = process.risk_level === 'high' ? '🔴' : process.risk_level === 'medium' ? '🟡' : '🟢';
+            
+            return '<div class="process-card ' + cardClass + '">' +
+                '<div class="card-header">' + process.name +
+                '<div style="display:flex;gap:5px;">' +
+                '<span class="badge ' + badgeClass + '">' + process.type.toUpperCase() + '</span>' +
+                '<span class="badge ' + riskBadgeClass + '" title="Deadlock Risk Score: ' + (process.risk_score || 0) + '">' +
+                riskIcon + ' ' + (process.risk_level || 'low').toUpperCase() + '</span>' +
+                '</div></div>' +
+                '<div class="card-info">' +
+                '<div><strong>PID:</strong> ' + process.pid + '</div>' +
+                '<div><strong>Status:</strong> ' + process.status + '</div>' +
+                '<div><strong>CPU:</strong> ' + process.cpu_percent + '%</div>' +
+                '<div><strong>Memory:</strong> ' + process.memory_percent.toFixed(2) + '%</div>' +
+                '<div><strong>Threads:</strong> ' + process.num_threads + '</div>' +
+                '<div><strong>Risk Score:</strong> ' + (process.risk_score || 0) + '/100</div>' +
+                '</div></div>';
+        }
+
+        function toggleAutoRefresh() {
+            const checkbox = document.getElementById('auto-refresh-checkbox');
+            if (checkbox.checked) startRealtimeUpdates();
+            else stopRealtimeUpdates();
+        }
+
+        function startRealtimeUpdates() {
+            if (realtimeInterval) clearInterval(realtimeInterval);
+            const checkbox = document.getElementById('auto-refresh-checkbox');
+            if (!checkbox || !checkbox.checked) return;
+            refreshProcesses();
+            updateSystemStats();
+            realtimeInterval = setInterval(() => {
+                refreshProcesses();
+                updateSystemStats();
+            }, 5000);
+        }
+
+        function stopRealtimeUpdates() {
+            if (realtimeInterval) {
+                clearInterval(realtimeInterval);
+                realtimeInterval = null;
+            }
+        }
+
+        async function updateSystemStats() {
+            try {
+                const response = await fetch('/api/system/stats');
+                const data = await response.json();
+                document.getElementById('stat-cpu').textContent = data.cpu_percent.toFixed(1) + '%';
+                document.getElementById('stat-memory').textContent = data.memory_percent.toFixed(1) + '%';
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        function showRecoveryModal(options) {
+            const modal = document.getElementById('recovery-modal');
+            const container = document.getElementById('recovery-options');
+            if (!options || options.length === 0) {
+                container.innerHTML = '<div class="alert alert-info">No recovery options available</div>';
+            } else {
+                container.innerHTML = options.map(option =>
+                    '<div class="recovery-option ' + (option.is_recommended ? 'recommended' : '') + '">' +
+                    '<div class="option-header"><div class="option-title">' + (option.is_recommended ? '⭐ ' : '') + option.description + '</div>' +
+                    '<span class="risk-badge risk-' + option.risk_level + '">' + option.risk_level.toUpperCase() + '</span></div>' +
+                    '<div style="margin:12px 0;padding:15px;background:' +
+                    (option.risk_level === 'critical' ? '#FFF5F5' : option.risk_level === 'high' ? '#FFF8F0' : '#F0FDF4') +
+                    ';border-radius:8px;border-left:4px solid ' +
+                    (option.risk_level === 'critical' ? '#FF9999' : option.risk_level === 'high' ? '#FDBA74' : '#A0D9B7') + ';">' +
+                    '<strong>' + option.risk_description + '</strong></div>' +
+                    '<div style="margin:12px 0;font-size:0.95em;"><strong>Impact:</strong> ' + option.impact_score.toFixed(2) + ' | ' +
+                    '<strong>Recommendation:</strong> ' + option.recommendation + '</div>' +
+                    '<div class="pros-cons"><div class="pros"><h4>✓ Advantages</h4><ul>' + 
+                    option.pros.map(pro => '<li>' + pro + '</li>').join('') + '</ul></div>' +
+                    '<div class="cons"><h4>✗ Disadvantages</h4><ul>' + 
+                    option.cons.map(con => '<li>' + con + '</li>').join('') + '</ul></div></div>' +
+                    '<div style="text-align:center;margin-top:18px;">' +
+                    (option.risk_level === 'critical' ? 
+                        '<button class="btn btn-danger" disabled>🚫 CANNOT TERMINATE</button>' :
+                        '<button class="btn ' + (option.is_recommended ? 'btn-success' : 'btn-warning') + '" ' +
+                        'onclick="executeRecovery(\'' + option.action + '\',\'' + option.process_id + '\',\'' + option.process_name + '\',\'' + option.risk_level + '\')">' +
+                        'Execute ' + (option.action === 'terminate' ? '🗑️ Terminate' : '⏸️ Suspend') + '</button>') +
+                    '</div></div>'
+                ).join('');
+            }
+            modal.classList.add('active');
+        }
+
+        function closeRecoveryModal() {
+            document.getElementById('recovery-modal').classList.remove('active');
+        }
+
+        async function executeRecovery(action, processId, processName, riskLevel) {
+            if (riskLevel === 'high' || riskLevel === 'critical') {
+                if (!confirm('⚠️ WARNING: ' + action + ' ' + riskLevel + ' process!\n\nProcess: ' + processName + ' (' + processId + ')\n\nContinue?')) return;
+            }
+            try {
+                const response = await fetch('/api/recovery/execute', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({action: action, process_id: processId})
+                });
+                const data = await response.json();
+                if (data.success) {
+                    showAlert(data.message + (data.note ? '<br><small>' + data.note + '</small>' : ''), 'success');
+                    closeRecoveryModal();
+                    
+                    if (currentMode === 'realtime') {
+                        setTimeout(refreshProcesses, 1000);
+                    } else {
+                        setTimeout(async () => {
+                            await loadManualState();
+                            await checkDeadlockAuto();
+                        }, 500);
+                    }
+                } else {
+                    showAlert(data.message, 'danger');
+                }
+            } catch (error) {
+                showAlert('Error executing recovery', 'danger');
+            }
+        }
+
+        function showAlert(message, type) {
+            const alertArea = document.getElementById('alert-area');
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'alert alert-' + type;
+            alertDiv.innerHTML = message;
+            alertArea.innerHTML = '';
+            alertArea.appendChild(alertDiv);
+            setTimeout(() => alertDiv.remove(), 5000);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadManualState();
+            updateSystemStats();
+            checkDeadlockAuto();
+        });
+
+        document.getElementById('recovery-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'recovery-modal') closeRecoveryModal();
+        });
+    </script>
+</body>
+</html>
